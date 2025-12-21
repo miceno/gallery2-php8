@@ -130,6 +130,9 @@ class GalleryUrlGenerator {
      */
     var $_isCookiePathConfigured;
 
+    var $_localUrlMap;
+    var $_hasRequestUriShortUrlPrefix;
+    var $_returnUrlData;
     /*
      * ****************************************
      *              Static Methods

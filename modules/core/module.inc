@@ -26,6 +26,8 @@
  */
 class CoreModule extends GalleryModule {
 
+protected $_galleryVersion;
+
     function __construct() {
 	global $gallery;
 

@@ -27,6 +27,8 @@
  * @version $Revision: 17988 $
  */
 class GalleryStorageExtras /* the other half of GalleryStorage */ {
+    var $_gs;
+
     /**
      * @param GalleryStorage $galleryStorage the database storage instance
      */
