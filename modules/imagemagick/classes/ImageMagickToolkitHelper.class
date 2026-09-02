@@ -626,7 +626,7 @@ class ImageMagickToolkitHelper {
 	    }
 	}
 
-	$binaries = array('combine', 'composite');
+	$binaries = array('composite', 'combine');
 	foreach ($binaries as $binary) {
 	    $binaryPath = $imageMagickPath . $binary .
 		(GalleryUtilities::isA($platform, 'WinNtPlatform') ? '.exe' : '');
