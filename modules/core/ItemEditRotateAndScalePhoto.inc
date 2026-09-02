@@ -220,7 +220,7 @@ class ItemEditRotateAndScalePhoto extends ItemEditPlugin {
 	    $ItemEditRotateAndScalePhoto['editPhoto']['hasPreferredSource'] = false;
 	} else {
 	    $preferred = $results[$item->getId()];
-	    if (preg_match("/(rotate|resize|scale)\|/", $preferred->getDerivativeOperations())) {
+	    if (preg_match("/(rotate|resize|scale)\|/", $preferred->getDerivativeOperations() ?? '')) {
 		$ItemEditRotateAndScalePhoto['editPhoto']['hasPreferredSource'] = true;
 	    } else {
 		$ItemEditRotateAndScalePhoto['editPhoto']['hasPreferredSource'] = false;

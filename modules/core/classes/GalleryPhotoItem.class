@@ -66,6 +66,8 @@ class GalleryPhotoItem extends GalleryDataItem {
     var $height;
 
 
+    var $parent;
+
     /**
      * @see GalleryDataItem::canBeViewedInline
      */
