@@ -1,7 +1,9 @@
 <?php
 if (!defined('G2_SUPPORT')) { return; }
 ob_start();
-phpinfo();
+/* Use INFO_GENERAL | INFO_CONFIGURATION | INFO_MODULES to omit environment variables
+ * and PHP variables ($_SERVER, $_ENV, etc.) which may contain sensitive data */
+phpinfo(INFO_GENERAL | INFO_CONFIGURATION | INFO_MODULES);
 $phpinfo = ob_get_contents();
 ob_end_clean();
 

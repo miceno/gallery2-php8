@@ -25,7 +25,7 @@ require_once "Auth/Auth.php";
 
 function loginFunction() {
 ?>
-    <form method="post" action="<?php echo $_SERVER['PHP_SELF'] ?>">
+    <form method="post" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF'], ENT_QUOTES, 'UTF-8') ?>">
     <input type="text" name="username">
     <input type="password" name="password">
     <input type="submit">

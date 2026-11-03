@@ -23,8 +23,10 @@
  * retrieve comments from the database for comments rss feeds.
  * @todo Don't access GalleryCommentHelper directly
  */
-if (GalleryPlatform::file_exists(dirname(__FILE__)
-	    . '/../../comment/classes/GalleryCommentHelper.class')) {
+global $gallery;
+$platform =& $gallery->getPlatform();
+if ($platform->file_exists(dirname(__FILE__)
+            . '/../../comment/classes/GalleryCommentHelper.class')) {
     GalleryCoreApi::requireOnce('modules/comment/classes/GalleryCommentHelper.class');
 }
 

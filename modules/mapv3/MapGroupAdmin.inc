@@ -42,6 +42,9 @@ class MapGroupAdminController extends GalleryController {
 
 		include dirname(__FILE__) . '/includes/MapAdminControllerInit.inc';
 
+		/* Sanitize $_POST since this module accesses it directly */
+		GalleryUtilities::sanitizeInputValues($_POST);
+
 		$BASE_PATH_STRING = 'modules/mapv3';
 		$basegallerydir   = substr(dirname(__FILE__), 0, -strlen($BASE_PATH_STRING));
 
@@ -119,7 +122,7 @@ class MapGroupAdminController extends GalleryController {
 				$error[] = 'form[error][notuploaded]';
 			} elseif (!move_uploaded_file(
 				$form['tmp_name'][3],
-				$basegallerydir . 'modules/mapv3/images/groups/' . $form['name'][3]
+				$basegallerydir . 'modules/mapv3/images/groups/' . basename($form['name'][3])
 			)
 			) {
 				$error[] = 'form[error][rightserror]';
