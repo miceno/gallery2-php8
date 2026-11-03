@@ -509,6 +509,11 @@ class GallerySession {
 	$this->_loadedSessionData = $localLoadedSessionData;
 	$this->setUserId($userId);
 
+    /* Carry the secure flag onto the new session so init() doesn't regenerate again */
+    if ($this->_isHttps()) {
+        $this->put('secure', true);
+    }
+
 	/* Start the session again (create a session in the DB, ...) */
 	$ret = $this->start();
 	if ($ret) {
@@ -654,7 +659,8 @@ class GallerySession {
 	 * Tag on the HttpOnly modifier.  IE 6.0 SP1 will prevent any cookies with this in it from
 	 * being visible to JavaScript, which mitigates XSS attacks.
 	 */
-	$cookie .= '; HttpOnly=1';
+	$cookie .= '; HttpOnly';
+	$cookie .= '; SameSite=Lax';
 
 	/*
 	 * Init may be called multiple times (from unit tests) but don't send headers more than

@@ -34,24 +34,17 @@ class UploadController extends GalleryController {
     function handleRequest($form) {
 	ImageUploadHelper::logRequest('UploadController');
 
-	/* Request forgery protection */
-	$httpUserAgent = GalleryUtilities::getServerVar('HTTP_USER_AGENT');
-	if (strstr($httpUserAgent, 'Nokia') === false) {
-	    return array(GalleryCoreApi::error(ERROR_REQUEST_FORGED), null);
-	}
+	/*
+	 * Request forgery protection: rely on the framework's standard CSRF auth token check
+	 * rather than the trivially-spoofed User-Agent header check that was here before.
+	 * omitAuthTokenCheck() now returns false (default), so the framework validates the token.
+	 */
 
 	$results['delegate'] = array('view' => 'nokiaupload.Upload');
 	$results['status'] = ImageUploadHelper::doUpload();
 	$results['error'] = array();
 
 	return array(null, $results);
-    }
-
-    /**
-     * @see GalleryController::omitAuthTokenCheck
-     */
-    function omitAuthTokenCheck() {
-	return true;
     }
 }
 

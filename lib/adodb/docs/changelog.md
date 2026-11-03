@@ -14,6 +14,146 @@ Older changelogs:
 
 --------------------------------------------------------------------------------
 
+## [5.22.11] - 2025-11-22
+
+### Fixed
+
+- core: fix Non-canonical cast deprecations in PHP 8.5
+  [#1143](https://github.com/ADOdb/ADOdb/issues/1143)
+- core: AutoExecute may skip updates when forceUpdate is false
+  [#1146](https://github.com/ADOdb/ADOdb/issues/1146)
+- core: AutoExecute() should return false when no rows are updated
+- mysql: treat query parameter objects with __toString() method as string
+  [#1075](https://github.com/ADOdb/ADOdb/issues/1075)
+- PDO Firebird: undefined method ADODB_pdo_firebird::_init()
+  [#1122](https://github.com/ADOdb/ADOdb/issues/1122)
+- active record: handle empty string in dbquote()
+  [#1073](https://github.com/ADOdb/ADOdb/issues/1073)
+
+
+## [5.22.10] - 2025-08-03
+
+### Security
+
+- pgsql: SQL injection in pg_insert_id() method (CVE-2025-54119)
+  [#1083](https://github.com/ADOdb/ADOdb/issues/1083)
+
+### Fixed
+
+- sqlite: metaForeignKeys() returns nothing when FOREIGN keyword is in lower case
+  [#1078](https://github.com/ADOdb/ADOdb/issues/1078)
+- sqlite: metaForeignKeys() does not support column-levels constraints
+  [#1079](https://github.com/ADOdb/ADOdb/issues/1079)
+- sqlite: metaForeignKeys() composite foreign keys are not supported
+  [#1080](https://github.com/ADOdb/ADOdb/issues/1080)
+
+
+## [5.22.9] - 2025-05-01
+
+### Security
+ 
+- pgsql: SQL injection in pg_insert_id() method (CVE-2025-46337)
+  [#1070](https://github.com/ADOdb/ADOdb/issues/1070)
+
+### Fixed
+
+- sqlite: Fulfill PRIMARY KEY AUTOINCREMENT requirements
+  [#1055](https://github.com/ADOdb/ADOdb/issues/1055)
+- sqlite: fix error reporting
+  [#1061](https://github.com/ADOdb/ADOdb/issues/1061)
+- Creation of dynamic property deprecated warning with PHP 8.2
+  [#1068](https://github.com/ADOdb/ADOdb/issues/1068)
+
+
+## [5.22.8] - 2025-01-25
+
+### Added
+
+- mysql: allow forcing use of emulated prepared statements
+  [#1028](https://github.com/ADOdb/ADOdb/issues/1028)
+- Georgian language strings
+  [#1042](https://github.com/ADOdb/ADOdb/issues/1042)
+
+### Changed
+
+- mysqli: Improve setConnectionParameter()
+  [#1044](https://github.com/ADOdb/ADOdb/issues/1044)
+  
+### Fixed
+
+- Backtrace output is not channeled through ADODB_OUTP
+  [#1018](https://github.com/ADOdb/ADOdb/issues/1018)
+- changeColumnSQL not handling new vs changed columns correctly #1010
+  [#1010](https://github.com/ADOdb/ADOdb/issues/1010)
+- PHP 8 compatibility
+  [#1009](https://github.com/ADOdb/ADOdb/issues/1009)
+  [#1012](https://github.com/ADOdb/ADOdb/issues/1012)
+  [#1021](https://github.com/ADOdb/ADOdb/issues/1021)
+  [#1045](https://github.com/ADOdb/ADOdb/issues/1045)
+- db2: fix connections using *LOCAL on IBM i series
+  [#1031](https://github.com/ADOdb/ADOdb/issues/1031)
+  [#1032](https://github.com/ADOdb/ADOdb/issues/1032)
+- mysqli: catch getAssoc() execution error in metaColumns()
+  [#1016](https://github.com/ADOdb/ADOdb/issues/1016)
+- mysqli: fix getAssoc() with ADODB_FETCH_DEFAULT mode
+  [#1023](https://github.com/ADOdb/ADOdb/issues/1023)
+- mysqli: SSL not working due to wrong socket/flags
+  [#919](https://github.com/ADOdb/ADOdb/issues/919)
+  [#1043](https://github.com/ADOdb/ADOdb/issues/1043)
+- pgsql: fix serverInfo() version number
+  [#1059](https://github.com/ADOdb/ADOdb/issues/1059)
+
+
+## [5.22.7] - 2023-11-04
+
+### Fixed
+
+- Respect @ operator in all error handlers on PHP 8
+  [#981](https://github.com/ADOdb/ADOdb/issues/981)
+- db2: Declaration of ADODB_db2::_query incompatible with parent
+  [#987](https://github.com/ADOdb/ADOdb/issues/987)
+- mysqli: bulkBind reset after one call
+  [#1000](https://github.com/ADOdb/ADOdb/issues/1000)
+- oci8: deprecation warning in selectLimit() on PHP 8.1
+  [#992](https://github.com/ADOdb/ADOdb/issues/992)
+- oci8: Fix Automatic conversion of false to array
+  [#998](https://github.com/ADOdb/ADOdb/issues/998)
+- oci8: Prevent str_replace NULL error in qstr() methods on PHP 8.1
+  [#999](https://github.com/ADOdb/ADOdb/issues/999)
+
+
+## [5.22.6] - 2023-06-11
+
+### Deprecated
+
+- Date/Time Library
+  [#970](https://github.com/ADOdb/ADOdb/issues/970)
+
+### Fixed
+
+- Creation of dynamic property deprecated warning with PHP 8.2
+  [#954](https://github.com/ADOdb/ADOdb/issues/954)
+  [#975](https://github.com/ADOdb/ADOdb/issues/975)
+- Remove unused oldProvider property in _rs2serialize()
+  [#957](https://github.com/ADOdb/ADOdb/issues/957)
+- Fix ADOConnection::execute() documentation of return type
+  [#964](https://github.com/ADOdb/ADOdb/issues/964)
+- Define _query() method in ADOConnection base class
+  [#966](https://github.com/ADOdb/ADOdb/issues/966)
+- Restore rs2html() $htmlspecialchars param behavior
+  [#968](https://github.com/ADOdb/ADOdb/issues/968)
+- adodb_throw() does not respect @ operator on PHP 8
+  [#981](https://github.com/ADOdb/ADOdb/issues/981)
+- loadbalancer: PHP 8.2 warnings
+  [#951](https://github.com/ADOdb/ADOdb/issues/951)
+- mysql: Fail connection if native driver (mysqlnd) is not available
+  [#967](https://github.com/ADOdb/ADOdb/issues/967)
+- pgsql: Fix PHP 8.1 deprecated warning
+  [#956](https://github.com/ADOdb/ADOdb/issues/956)
+- pgsql: avoid Insert_ID() failing when lastval() is not set
+  [#978](https://github.com/ADOdb/ADOdb/issues/978)
+
+
 ## [5.22.5] - 2023-04-03
 
 ### Removed
@@ -1384,6 +1524,12 @@ Released together with [v4.95](changelog_v4.x.md#495---17-may-2007)
 - Adodb5 version,more error checking code now will use exceptions if available.
 
 
+[5.22.11]: https://github.com/adodb/adodb/compare/v5.22.10...v5.22.11
+[5.22.10]: https://github.com/adodb/adodb/compare/v5.22.9...v5.22.10
+[5.22.9]: https://github.com/adodb/adodb/compare/v5.22.8...v5.22.9
+[5.22.8]: https://github.com/adodb/adodb/compare/v5.22.7...v5.22.8
+[5.22.7]: https://github.com/adodb/adodb/compare/v5.22.6...v5.22.7
+[5.22.6]: https://github.com/adodb/adodb/compare/v5.22.5...v5.22.6
 [5.22.5]: https://github.com/adodb/adodb/compare/v5.22.4...v5.22.5
 [5.22.4]: https://github.com/adodb/adodb/compare/v5.22.3...v5.22.4
 [5.22.3]: https://github.com/adodb/adodb/compare/v5.22.2...v5.22.3

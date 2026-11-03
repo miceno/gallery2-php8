@@ -34,8 +34,9 @@
  * @package Upgrade
  */
 
-/* Show all errors. */
-@ini_set('display_errors', 1);
+/* Only show errors in non-production environments; suppress in production to avoid info leakage */
+@ini_set('display_errors', 0);
+@ini_set('log_errors', 1);
 
 $g2Base = dirname(dirname(__FILE__)) . '/';
 require_once($g2Base . 'upgrade/UpgradeStep.class');
@@ -123,7 +124,7 @@ if (!empty($storageConfig)) {
 
 /* If we don't have our steps in our session, initialize them now. */
 if (!isset($_GET['startOver']) && !empty($_SESSION['upgrade_steps'])) {
-    $steps = unserialize($_SESSION['upgrade_steps']);
+    $steps = unserialize($_SESSION['upgrade_steps'], array('allowed_classes' => true));
 }
 
 if (empty($steps) || !is_array($steps)) {

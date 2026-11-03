@@ -22,7 +22,7 @@
 // ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-if (version_compare(phpversion(), '5.3', '>=')) {
+if (version_compare(phpversion(), '5.3', '>=') and version_compare(phpversion(), '8.4.0', '<')) {
 	// Ignore these warnings for PHP 5.3 in Gallery 2.3
 	error_reporting(E_ALL & ~E_STRICT);
 } else {
@@ -1015,6 +1015,9 @@ class TestSuite {
 	public $fTests = array();
 	public $fClassname;
 	public $fModuleId;
+
+	/* deprecated dynamic properties in php 8.2 */
+	public $fFilter;
 
 	public function __construct($classname = false, $moduleid = false, $filter = null) {
 		// Find all methods of the given class whose name starts with

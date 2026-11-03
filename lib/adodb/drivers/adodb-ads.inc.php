@@ -371,7 +371,7 @@ class ADODB_ads extends ADOConnection
 	*/
 	function ODBCTypes($t)
 	{
-		switch ((integer)$t) {
+		switch ((int)$t) {
 			case 1:
 			case 12:
 			case 0:
@@ -564,7 +564,6 @@ class ADODB_ads extends ADOConnection
 		return array($sql, $stmt, false);
 	}
 
-	/* returns queryID or false */
 	function _query($sql, $inputarr = false)
 	{
 		$last_php_error = $this->resetLastError();

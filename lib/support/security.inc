@@ -81,7 +81,7 @@ if (empty($config)) {
 	}
 	render('loginTxtForm', $options);
     } else if (!empty($_POST['password'])) {
-	if ($_POST['password'] == $config['setup.password']) {
+	if (hash_equals($config['setup.password'], $_POST['password'])) {
 	    GallerySetupUtilities::authenticateThisSession();
 	    GallerySetupUtilities::redirectBackToSelf();
 	    exit;

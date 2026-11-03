@@ -272,6 +272,16 @@ function _GalleryMain($embedded=false, $template=null) {
 	    if (empty($redirectUrl)) {
 		$redirectUrl = GalleryUtilities::getRequestVariables('formUrl');
 	    }
+	    /* Prevent open redirect: only allow relative URLs or same-host URLs */
+	    if (!empty($redirectUrl)) {
+		$parsed = parse_url($redirectUrl);
+		if (!empty($parsed['host'])) {
+		    $ourHost = GalleryUtilities::getServerVar('HTTP_HOST');
+		    if (strcasecmp($parsed['host'], $ourHost) !== 0) {
+			$redirectUrl = '';
+		    }
+		}
+	    }
 	}
 
 	/* Failing that, redirect if so instructed */
@@ -393,8 +403,8 @@ function _GalleryMain($embedded=false, $template=null) {
 	    print $session->replaceTempSessionIdIfNecessary($html);
 	    $data['isDone'] = true;
 	} else {
-	    $html = unserialize($html);
-	    $themeData = unserialize($themeData);
+	    $html = unserialize($html, array('allowed_classes' => false));
+	    $themeData = unserialize($themeData, array('allowed_classes' => false));
 
 	    $data = $session->replaceSessionIdInData($html);
 	    $data['themeData'] = $session->replaceSessionIdInData($themeData);

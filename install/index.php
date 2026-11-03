@@ -34,8 +34,9 @@
  * @package Install
  */
 
-/* Show all errors. */
-@ini_set('display_errors', 1);
+/* Only show errors in non-production environments; suppress in production to avoid info leakage */
+@ini_set('display_errors', 0);
+@ini_set('log_errors', 1);
 
 $g2Base = dirname(dirname(__FILE__)) . '/';
 require_once($g2Base . 'install/GalleryStub.class');
@@ -107,9 +108,9 @@ if (function_exists('dgettext')) {
 unset($galleryStub);
 
 if (!isset($_GET['startOver']) && !empty($_SESSION['install_steps'])) {
-    $steps = unserialize($_SESSION['install_steps']);
+    $steps = unserialize($_SESSION['install_steps'], array('allowed_classes' => true));
     if (isset($_SESSION['galleryStub'])) {
-	$galleryStub = unserialize($_SESSION['galleryStub']);
+	$galleryStub = unserialize($_SESSION['galleryStub'], array('allowed_classes' => true));
     }
 }
 

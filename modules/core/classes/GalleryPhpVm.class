@@ -96,6 +96,16 @@ class GalleryPhpVm {
     }
 
     /**
+     * Return the hex value from bin2hex() of the given string
+     *
+     * @param string $string string to be converted to hex
+     * @return string converted hex string value
+     */
+    function bin2hex($string) {
+	return bin2hex($string);
+    }
+
+    /**
      * Calculates the crc32 polynomial of a string
      *
      * @param string $string the value to be checksummed

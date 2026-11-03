@@ -404,7 +404,7 @@ class ADODB_pdo extends ADOConnection {
 			if (sizeof($arr)<2) {
 				return '';
 			}
-			if ((integer)$arr[0]) {
+			if ((int)$arr[0]) {
 				return $arr[2];
 			}
 			else {
@@ -578,7 +578,6 @@ class ADODB_pdo extends ADOConnection {
 	}
 
 
-	/* returns queryID or false */
 	function _query($sql,$inputarr=false)
 	{
 		$ok = false;
@@ -617,7 +616,7 @@ class ADODB_pdo extends ADOConnection {
 		if ($stmt) {
 
 			$arr = $stmt->errorinfo();
-			if ((integer)$arr[1]) {
+			if ((int)$arr[1]) {
 				$this->_errormsg = $arr[2];
 				$this->_errorno = $arr[1];
 			}
@@ -753,7 +752,7 @@ class ADOPDOStatement {
 		}
 
 		if (is_array($arr)) {
-			if ((integer) $arr[0] && isset($arr[2])) {
+			if ((int) $arr[0] && isset($arr[2])) {
 				return $arr[2];
 			}
 			else {

@@ -53,11 +53,17 @@ if (empty($path)) {
      */
     GalleryUtilities::sanitizeInputValues($path);
 }
-/* Some basic sanitation */
-$path = str_replace('..', '', $path);
-if (!file_exists($path)) {
-    /* TODO: add open_basedir check */
-    $status['error'][] = "Folder or file '$path' does not exist!";
+/* Validate path: resolve to real path and ensure it is within the gallery storage or install dir */
+$realPath = realpath($path);
+$galleryStoragePath = realpath(getGalleryStoragePath());
+$galleryConfigDir = realpath(GallerySetupUtilities::getConfigDir());
+if ($realPath === false) {
+    $status['error'][] = "Folder or file does not exist!";
+} else if (($galleryStoragePath && strpos($realPath, $galleryStoragePath) === 0)
+	|| ($galleryConfigDir && strpos($realPath, $galleryConfigDir) === 0)) {
+    $path = $realPath;
+} else {
+    $status['error'][] = "Path is not within the Gallery directory!";
 }
 
 /* Permissions (format e.g. 755644, split after 3 characters to get 755 and 644)*/

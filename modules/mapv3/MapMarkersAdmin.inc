@@ -39,6 +39,9 @@ class MapMarkersAdminController extends GalleryController {
 	public function handleRequest($form) {
 		include dirname(__FILE__) . '/includes/MapAdminControllerInit.inc';
 
+		/* Sanitize $_POST since this module accesses it directly */
+		GalleryUtilities::sanitizeInputValues($_POST);
+
 		global $gallery;
 		$platform       = $gallery->getPlatform();
 		$basegallerydir = dirname(dirname(dirname(__FILE__))) . '/';
@@ -410,7 +413,7 @@ class MapMarkersAdminController extends GalleryController {
 			} elseif (!move_uploaded_file(
 				$form['tmp_name'][1],
 				$basegallerydir
-				. $module_path . 'images/basemarkers/' . $form['name'][1]
+				. $module_path . 'images/basemarkers/' . basename($form['name'][1])
 			)
 			) {
 				$error[] = 'form[error][rightserror]';
@@ -452,7 +455,7 @@ class MapMarkersAdminController extends GalleryController {
 				$error[] = 'form[error][notuploaded]';
 			} elseif (!move_uploaded_file(
 				$form['tmp_name'][2],
-				$basegallerydir . $module_path . 'images/multi/' . $form['name'][2]
+				$basegallerydir . $module_path . 'images/multi/' . basename($form['name'][2])
 			)
 			) {
 				$error[] = 'form[error][rightserror]';

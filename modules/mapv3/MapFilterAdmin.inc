@@ -42,6 +42,9 @@ class MapFilterAdminController extends GalleryController {
 	public function handleRequest($form) {
 		include dirname(__FILE__) . '/includes/MapAdminControllerInit.inc';
 
+		/* Sanitize $_POST since this module accesses it directly */
+		GalleryUtilities::sanitizeInputValues($_POST);
+
 		$status = array();
 		// Cancel hit, return to the default Filter adminpage
 		if (isset($form['action']['cancel'])) {

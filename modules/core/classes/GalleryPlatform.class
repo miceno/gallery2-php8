@@ -39,6 +39,11 @@ class GalleryPlatform {
 	'html', 'js', 'htm', 'shtml', 'vbs', 'dll', 'jsp' , 'cfm', 'reg', 'shtm', 'phtm', 'exe',
 	'bat', 'sh', 'cmd', 'install', 'pl', 'tcl', 'py', 'com', 'rb', 'asp', 'aspx', 'ascx');
 
+    /* deprecated dynamic properties in php 8.2 */
+    var $_filePerms;
+    var $_dirPerms;
+    var $_umask;
+
     /**
      * Copy a file.
      * @param string $source the source file
@@ -579,7 +584,13 @@ class GalleryPlatform {
 	}
 
 	$umask = umask(0);
-	$results = mkdir($path, $octalPerms);
+	/*
+	 * Treat an already-existing directory as success: another request (or an
+	 * earlier guaranteeDirExists check) may have created $path between the
+	 * caller's file_exists() test and now (TOCTOU race). @ suppresses the
+	 * resulting "File exists" warning; is_dir() confirms the dir is really there.
+	 */
+	$results = @mkdir($path, $octalPerms) || is_dir($path);
 	umask($umask);
 	return $results;
     }

@@ -198,7 +198,7 @@ if (!defined('_ADODB_LAYER')) {
 		/**
 		 * ADODB version as a string.
 		 */
-		$ADODB_vers = 'v5.22.5  2023-04-03';
+		$ADODB_vers = 'v5.22.11  2025-11-22';
 
 		/**
 		 * Determines whether recordset->RecordCount() is used.
@@ -1466,7 +1466,7 @@ if (!defined('_ADODB_LAYER')) {
 	 * @param array|bool $inputarr holds the input data to bind to.
 	 *                             Null elements will be set to null.
 	 *
-	 * @return ADORecordSet|bool
+	 * @return ADORecordSet|false
 	 */
 	public function Execute($sql, $inputarr = false) {
 		if ($this->fnExecute) {
@@ -1664,6 +1664,18 @@ if (!defined('_ADODB_LAYER')) {
 			}
 		}
 		return $rs;
+	}
+
+	/**
+	 * Execute a query.
+	 *
+	 * @param string|array $sql        Query to execute.
+	 * @param array        $inputarr   An optional array of parameters.
+	 *
+	 * @return mixed|bool Query identifier or true if execution successful, false if failed.
+	 */
+	function _query($sql, $inputarr = false) {
+		return false;
 	}
 
 	function CreateSequence($seqname='adodbseq',$startID=1) {
@@ -2164,7 +2176,7 @@ if (!defined('_ADODB_LAYER')) {
 			return false;
 		}
 
-		$midrow = (integer) ($total/2);
+		$midrow = (int) ($total/2);
 		$rs = $this->SelectLimit("select $field from $table $where order by 1",1,$midrow);
 		if ($rs && !$rs->EOF) {
 			return reset($rs->fields);
@@ -2643,39 +2655,48 @@ if (!defined('_ADODB_LAYER')) {
 	 * @noinspection PhpUnusedParameterInspection
 	 */
 	function autoExecute($table, $fields_values, $mode = 'INSERT', $where = '', $forceUpdate = true, $magic_quotes = false) {
+		switch($mode) {
+			case DB_AUTOQUERY_INSERT:
+			case DB_AUTOQUERY_UPDATE:
+				break;
+			case 'UPDATE':
+				$mode = DB_AUTOQUERY_UPDATE;
+				break;
+			case 'INSERT':
+				$mode = DB_AUTOQUERY_INSERT;
+				break;
+			default:
+				$this->outp_throw("AutoExecute: Unknown mode=$mode", 'AutoExecute');
+				return false;
+		}
+
 		if (empty($fields_values)) {
 			$this->outp_throw('AutoExecute: Empty fields array', 'AutoExecute');
 			return false;
 		}
-		if (empty($where) && ($mode == 'UPDATE' || $mode == 2 /* DB_AUTOQUERY_UPDATE */)) {
+		if (empty($where) && $mode == DB_AUTOQUERY_UPDATE) {
 			$this->outp_throw('AutoExecute: Illegal mode=UPDATE with empty WHERE clause', 'AutoExecute');
 			return false;
 		}
 
 		$sql = "SELECT * FROM $table";
-		$rs = $this->SelectLimit($sql, 1);
-		if (!$rs) {
-			return false; // table does not exist
-		}
-
-		$rs->tableName = $table;
 		if (!empty($where)) {
 			$sql .= " WHERE $where";
 		}
+
+		$rs = $this->SelectLimit($sql, 1);
+		if (!$rs || $mode == DB_AUTOQUERY_UPDATE && $rs->EOF) {
+			// Table does not exist or udpate where clause matches no rows
+			return false;
+		}
+
+		$rs->tableName = $table;
 		$rs->sql = $sql;
 
-		switch($mode) {
-			case 'UPDATE':
-			case DB_AUTOQUERY_UPDATE:
-				$sql = $this->GetUpdateSQL($rs, $fields_values, $forceUpdate);
-				break;
-			case 'INSERT':
-			case DB_AUTOQUERY_INSERT:
-				$sql = $this->GetInsertSQL($rs, $fields_values);
-				break;
-			default:
-				$this->outp_throw("AutoExecute: Unknown mode=$mode", 'AutoExecute');
-				return false;
+		if ($mode == DB_AUTOQUERY_UPDATE) {
+			$sql = $this->getUpdateSQL($rs, $fields_values, $forceUpdate);
+		} else {
+			$sql = $this->getInsertSQL($rs, $fields_values);
 		}
 		return $sql && $this->Execute($sql);
 	}
@@ -3554,20 +3575,21 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 
 
 	/**
-	 * Will select the supplied $page number from a recordset, given that it is paginated in pages of
-	 * $nrows rows per page. It also saves two boolean values saying if the given page is the first
-	 * and/or last one of the recordset. Added by Iván Oliva to provide recordset pagination.
+	 * Execute query with pagination.
 	 *
-	 * See docs-adodb.htm#ex8 for an example of usage.
-	 * NOTE: phpLens uses a different algorithm and does not use PageExecute().
+	 * Will select the supplied $page number from a recordset, divided in
+	 * pages of $nrows rows each. It also saves two boolean values saying
+	 * if the given page is the first and/or last one of the recordset.
 	 *
-	 * @param string $sql
-	 * @param int    $nrows          Number of rows per page to get
-	 * @param int    $page           Page number to get (1-based)
-	 * @param mixed[]|bool $inputarr Array of bind variables
-	 * @param int    $secs2cache     Private parameter only used by jlim
+	 * @param string     $sql        Query to execute
+	 * @param int        $nrows      Number of rows per page
+	 * @param int        $page       Page number to retrieve (1-based)
+	 * @param array|bool $inputarr   Array of bind variables
+	 * @param int        $secs2cache Time-to-live of the cache (in seconds), 0 to force query execution
 	 *
-	 * @return mixed		the recordset ($rs->databaseType == 'array')
+	 * @return ADORecordSet|bool the recordset ($rs->databaseType == 'array')
+	 *
+	 * @author Iván Oliva
 	 */
 	function PageExecute($sql, $nrows, $page, $inputarr=false, $secs2cache=0) {
 		global $ADODB_INCLUDED_LIB;
@@ -3743,6 +3765,7 @@ http://www.stanford.edu/dept/itss/docs/oracle/10g/server.101/b10759/statements_1
 	/**
 	 * Internal placeholder for record objects. Used by ADORecordSet->FetchObj().
 	 */
+	#[\AllowDynamicProperties]
 	class ADOFetchObj {
 	};
 
@@ -3982,11 +4005,20 @@ class ADORecordSet implements IteratorAggregate {
 	var $_obj;				/** Used by FetchObj */
 	var $_names;			/** Used by FetchObj */
 
-	var $_currentPage = -1;	/** Added by Iván Oliva to implement recordset pagination */
-	var $_atFirstPage = false;	/** Added by Iván Oliva to implement recordset pagination */
-	var $_atLastPage = false;	/** Added by Iván Oliva to implement recordset pagination */
+	// Recordset pagination
+	/** @var int Number of rows per page */
+	var $rowsPerPage;
+	/** @var int Current page number */
+	var $_currentPage = -1;
+	/** @var bool True if current page is the first page */
+	var $_atFirstPage = false;
+	/** @var bool True if current page is the last page */
+	var $_atLastPage = false;
+	/** @var int Last page number */
 	var $_lastPageNo = -1;
+	/** @var int Total number of rows in recordset */
 	var $_maxRecordCount = 0;
+
 	var $datetime = false;
 
 	public $customActualTypes;
@@ -4277,6 +4309,8 @@ class ADORecordSet implements IteratorAggregate {
 	 */
 	function getAssoc($force_array = false, $first2cols = false)
 	{
+		global $ADODB_FETCH_MODE;
+
 		/*
 		* Insufficient rows to show data
 		*/
@@ -4299,8 +4333,8 @@ class ADORecordSet implements IteratorAggregate {
 		* Get the fetch mode when the call was executed, this may be
 		* different than ADODB_FETCH_MODE
 		*/
-		$fetchMode = $this->connection->fetchMode;
-		if ($fetchMode == ADODB_FETCH_BOTH) {
+		$fetchMode = $this->adodbFetchMode;
+		if ($fetchMode == ADODB_FETCH_BOTH || $fetchMode == ADODB_FETCH_DEFAULT) {
 			/*
 			* If we are using BOTH, we present the data as if it
 			* was in ASSOC mode. This could be enhanced by adding
@@ -4332,7 +4366,7 @@ class ADORecordSet implements IteratorAggregate {
 
 			$myFields = $this->fields;
 
-			if ($fetchMode == ADODB_FETCH_BOTH) {
+			if ($fetchMode == ADODB_FETCH_BOTH || $fetchMode == ADODB_FETCH_DEFAULT) {
 				/*
 				* extract the associative keys
 				*/
@@ -5676,10 +5710,10 @@ class ADORecordSet implements IteratorAggregate {
 										$nconnect = true; $persist = true; break;
 					case 'persist':
 					case 'persistent':	$persist = $v; break;
-					case 'debug':		$obj->debug = (integer) $v; break;
+					case 'debug':		$obj->debug = (int) $v; break;
 					#ibase
 					case 'role':		$obj->role = $v; break;
-					case 'dialect':	$obj->dialect = (integer) $v; break;
+					case 'dialect':	$obj->dialect = (int) $v; break;
 					case 'charset':		$obj->charset = $v; $obj->charSet=$v; break;
 					case 'buffers':		$obj->buffers = $v; break;
 					case 'fetchmode':   $obj->SetFetchMode($v); break;

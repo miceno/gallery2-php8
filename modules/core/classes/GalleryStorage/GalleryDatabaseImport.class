@@ -137,6 +137,11 @@ class GalleryDatabaseImport extends GalleryImportElement {
      */
     var $_fileReadChunkSize = 8192;
 
+    /* deprecated dynamic properties in php 8.2 */
+    var $_installedModuleVersion;
+    var $_installedCoreVersion;
+    var $_installedThemeVersion;
+
     function __construct() {
 	parent::__construct();
     }
@@ -437,7 +442,7 @@ class _GalleryPluginTag extends GalleryImportElement {
      * @see GalleryXmlHandler::_processStartElement
      * @access protected
      */
-    function _processStartTag($tag, $attributes) {
+    function _processStartElement($tag, $attributes) {
     	if ($tag == 'sequence') {
 	    return new _GallerySequenceTag($this, $attributes);
     	} else if ($tag == 'table') {
@@ -725,7 +730,7 @@ class _GalleryFieldDefinitionTag extends GalleryImportElement {
 	    $this->_fieldDefinition['notNull'] = $attributes['not-null'];
 	}
 	if (!empty($attributes['not-null-empty-allowed'])) {
-	    $this->$this->_fieldDefinition['notNullEmptyAllowed'] =
+	    $this->_fieldDefinition['notNullEmptyAllowed'] =
 		    		$attributes['not-null-empty-allowed'];
 	}
     }
@@ -743,6 +748,10 @@ class _GalleryRowTag extends GalleryImportElement {
 
     /** Holds the generated insert for this table */
     var $_currentSql;
+
+    /* deprecated dynamic properties in php 8.2 */
+    var $_fields;
+    var $_fieldNames;
 
     function __construct($parent, $tableName, $fields, $attributes) {
 	parent::__construct($parent);
@@ -853,11 +862,10 @@ class GalleryXmlProcessor {
 
 	$this->_xmlParser = xml_parser_create('UTF-8');
 	xml_parser_set_option($this->_xmlParser, XML_OPTION_CASE_FOLDING, 0);
-	xml_set_object($this->_xmlParser, $this);
 
 	/* Initialize the XML callback functions */
-	xml_set_element_handler($this->_xmlParser, '_processStartElement', '_processEndElement');
-	xml_set_character_data_handler($this->_xmlParser, '_processCData');
+	xml_set_element_handler($this->_xmlParser, [$this, '_processStartElement'], [$this, '_processEndElement']);
+	xml_set_character_data_handler($this->_xmlParser, [$this, '_processCData']);
         }
 
     /**

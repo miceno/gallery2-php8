@@ -31,6 +31,9 @@ GalleryCoreApi::requireOnce('modules/core/classes/GalleryStorage.class');
  */
 class PostgreSqlStorage extends GalleryStorage {
 
+    /* deprecated dynamic properties in php 8.2 */
+    public $_serverInfo;
+
     function __construct($config) {
     parent::__construct($config);
 	$this->_isTransactional = true;
@@ -135,7 +138,11 @@ class PostgreSqlStorage extends GalleryStorage {
      * @see GalleryStorage::convertBitsToInt
      */
     function convertBitsToInt($bitsVal) {
-	return bindec($bitsVal);
+        if (is_null($bitsVal)) {
+            return 0;
+        } else {
+	    return bindec($bitsVal);
+        }
     }
 
     /**
@@ -200,11 +207,10 @@ class PostgreSqlStorage extends GalleryStorage {
 	     * 2 - number of rows
 	     */
 	    $markers = GalleryUtilities::makeMarkers(sizeof($args[1]));
-	    $rowList = rtrim(str_repeat('SELECT ' . $markers . ' UNION ALL ', $args[2]),
-			     'UNION ALL ');
+	    $rowList = rtrim(str_repeat('(' . $markers . '), ', $args[2]), ', ');
 	    $sql = 'INSERT INTO ' . $args[0] . ' (';
 	    $sql .= join(', ', $args[1]);
-	    $sql .= ') ' . $rowList;
+	    $sql .= ') VALUES ' . $rowList;
 	    break;
 
 	case 'AVG':
@@ -225,7 +231,7 @@ class PostgreSqlStorage extends GalleryStorage {
      */
     function getVersion() {
 	if (function_exists('pg_version')) {
-	    return implode(' ', pg_version());
+	    return implode(' ', pg_version($this->_db->_connectionID));
 	}
 	return null;
     }

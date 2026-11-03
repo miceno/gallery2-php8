@@ -76,9 +76,11 @@ function adodb_session_regenerate_id()
 	if (function_exists('session_regenerate_id')) {
 		session_regenerate_id();
 	} else {
-		session_id(md5(uniqid(rand(), true)));
+		session_id(bin2hex(random_bytes(16)));
 		$ck = session_get_cookie_params();
-		setcookie(session_name(), session_id(), false, $ck['path'], $ck['domain'], $ck['secure'], $ck['httponly']);
+		setcookie(session_name(), session_id(), array(
+			'expires' => 0, 'path' => $ck['path'], 'domain' => $ck['domain'],
+			'secure' => $ck['secure'], 'httponly' => $ck['httponly'], 'samesite' => 'Lax'));
 		//@session_start();
 	}
 	$new_id = session_id();
@@ -88,7 +90,9 @@ function adodb_session_regenerate_id()
 	if (!$ok) {
 		session_id($old_id);
 		if (empty($ck)) $ck = session_get_cookie_params();
-		setcookie(session_name(), session_id(), false, $ck['path'], $ck['domain'], $ck['secure'], $ck['httponly']);
+		setcookie(session_name(), session_id(), array(
+			'expires' => 0, 'path' => $ck['path'], 'domain' => $ck['domain'],
+			'secure' => $ck['secure'], 'httponly' => $ck['httponly'], 'samesite' => 'Lax'));
 		return false;
 	}
 

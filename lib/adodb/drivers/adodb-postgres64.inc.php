@@ -113,13 +113,12 @@ class ADODB_postgres64 extends ADOConnection{
 			}
 
 			$version = pg_version($this->_connectionID);
+			// If PHP has been compiled with PostgreSQL 7.3 or lower, then
+			// server_version is not set so we use pg_parameter_status() instead.
+			$version_server = $version['server'] ?? pg_parameter_status($this->_connectionID, 'server_version');
+
 			$this->version = array(
-				// If PHP has been compiled with PostgreSQL 7.3 or lower, then
-				// server version is not set so we use pg_parameter_status()
-				// which includes logic to obtain values server_version
-				'version' => isset($version['server'])
-					? $version['server']
-					: pg_parameter_status($this->_connectionID, 'server_version'),
+				'version' => $this->_findvers($version_server),
 				'client' => $version['client'],
 				'description' => null,
 			);
@@ -136,10 +135,20 @@ class ADODB_postgres64 extends ADOConnection{
 		return " coalesce($field, $ifNull) ";
 	}
 
-	// get the last id - never tested
-	function pg_insert_id($tablename,$fieldname)
+	/**
+	 * Get the last inserted id.
+	 *
+	 * @param string $tablename
+	 * @param string $fieldname
+	 * @return int|false
+	 *
+	 * @noinspection PhpUnused
+	 * @deprecated 5.22.9 Use {@see insert_ID()} method instead.
+	 */
+	function pg_insert_id($tablename, $fieldname)
 	{
-		$result=pg_query($this->_connectionID, 'SELECT last_value FROM '. $tablename .'_'. $fieldname .'_seq');
+		$sequence = pg_escape_identifier($this->_connectionID, $tablename .'_'. $fieldname .'_seq');
+		$result = pg_query($this->_connectionID, 'SELECT last_value FROM '. $sequence);
 		if ($result) {
 			$arr = @pg_fetch_row($result,0);
 			pg_free_result($result);
@@ -258,7 +267,9 @@ class ADODB_postgres64 extends ADOConnection{
 		if ($this->_connectionID) {
 			return "'" . pg_escape_string($this->_connectionID, $s) . "'";
 		} else {
-			return "'" . pg_escape_string($s) . "'";
+			// Fall back to emulated escaping when there is no database connection.
+			// Avoids errors when using setSessionVariables() in the load balancer.
+			return parent::qStr( $s );
 		}
 	}
 
@@ -782,7 +793,6 @@ class ADODB_postgres64 extends ADOConnection{
 	}
 
 
-	// returns queryID or false
 	function _query($sql,$inputarr=false)
 	{
 		$this->_pnum = 0;

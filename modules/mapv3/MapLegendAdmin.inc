@@ -40,6 +40,9 @@ class MapLegendAdminController extends GalleryController {
 	public function handleRequest($form) {
 		include dirname(__FILE__) . '/includes/MapAdminControllerInit.inc';
 
+		/* Sanitize $_POST since this module accesses it directly */
+		GalleryUtilities::sanitizeInputValues($_POST);
+
 		// Cancel hit, return to the default Legend Admin Page
 		if (isset($form['action']['cancel'])) {
 			$results['status']              = array();
