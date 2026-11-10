@@ -19,7 +19,7 @@ For framework contracts, inspect the related classes under `modules/core/classes
 
 ### Gallery forms
 
-The supplied [Gallery2:Forms](http://codex.galleryproject.org/Gallery2:Forms) page is a historical Gallery 2.3 RC1 overview; verify its examples against this fork. In templates, use `{g->hiddenFormVars}` for the return/form URLs and session auth token, and `{g->formVar var="form[field]"}` to name form inputs. Gallery prefixes request variables with `GALLERY_FORM_VARIABLE_PREFIX` (default `g2_`); avoid hard-coding the prefix.
+In templates, use `{g->hiddenFormVars}` for the return/form URLs and session auth token, and `{g->formVar var="form[field]"}` to name form inputs. Gallery prefixes request variables with `GALLERY_FORM_VARIABLE_PREFIX` (default `g2_`); avoid hard-coding the prefix.
 
 `main.php` selects a controller from the request, collects its `$form` with `GalleryUtilities::getFormVariables('form')`, and passes it to `handleRequest()`. The collector merges matching arrays from `$_POST`, `$_FILES`, and `$_GET`; form inputs conventionally use names such as `form[field]` and `form[action][submit]`. Before handling the request, `main.php` checks its session auth token unless the controller opts out; the check accepts non-persistent guest sessions and is bypassed in maintenance mode.
 
