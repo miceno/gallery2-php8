@@ -1,164 +1,79 @@
-# Agent Guide
+<!-- FOR AI AGENTS - Human readability is a side effect, not a goal -->
+<!-- Managed by agent: keep sections and order; edit content, not structure -->
+<!-- Last updated: 2026-11-16 | Last verified: 2026-11-16 -->
 
-This repository is a Gallery 2.3.2-based fork with PHP 8 compatibility changes. Use this guide to locate relevant code and follow existing project patterns; consult the linked project documentation for detailed setup instructions.
+# AGENTS.md
 
-## Project map
+**Precedence:** the **closest `AGENTS.md`** to the files you're changing wins; explicit user instructions override both.
 
-- `main.php` handles Gallery page requests. `bootstrap.inc` creates and initializes the Gallery instance and loads `config.php`; `init.inc` contains framework initialization.
-- `modules/` contains Gallery modules, `themes/` contains theme implementations, and `lib/` contains shared libraries and tools.
-- `images/` and `locale/` hold assets and localization data; `install/` and `upgrade/` contain installation and upgrade flows.
-- `README.md` describes the fork; `DEVELOPMENT.md` documents the development environment.
+Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Composer manifest or autoloader, no CI, no static analysis, shared globals. Preserve the surrounding Gallery patterns; do not modernize broadly (no PSR-12 sweep, no `strict_types`, no framework swap).
 
-## Data model
+## Commands
+| Task | Command | ~Time |
+|------|---------|-------|
+| Start stack | `docker compose up -d` | ~20s |
+| Rebuild PHP | `PHP_TARGET=debug docker compose build php` | ~2min |
+| Syntax check | `docker compose exec php php -l modules/core/UserLogin.inc` | ~1s |
+| Open installer | `docker compose exec php chmod a+w /gallery2-data` | ~1s |
+| Run module tests | `bash auto-test.sh http://host.docker.internal:10000/ comment` | minutes |
+| Run one test | `bash auto-test.sh http://host.docker.internal:10000/ AddCommentControllerTest.testAddComment` | ~10s |
+| Regenerate entities | `docker compose exec -w /app/modules/comment/classes php php ../../../lib/tools/bin/generate-entities.php` | ~2s |
 
-Data lives in two shapes: **entities** (one row per object; PHP classes whose schema is declared
-in the class PHPDoc) and **maps** (row sets declared in `Maps.xml`). Most storage logic lives in
-helpers under `modules/core/classes/helpers/` (e.g. `GalleryItemHelper_advanced`,
-`GalleryPermissionHelper_simple`) fronted by thin `GalleryCoreApi` wrappers.
+- Install at `http://host.docker.internal:10000/install/`; `PHP_TARGET=debug` adds Xdebug (`base`/unset does not), and switching requires rebuilding and restarting `php`.
+- PHP exists only in the `php` container. Test runner UI: `http://host.docker.internal:10000/lib/tools/phpunit/index.php` — type a filter and press Enter (no submit button).
 
-### Entities
+## Workflow
+1. Read the closest `AGENTS.md` and the target module's `module.inc` before editing.
+2. Copy a golden sample named in that scoped file; modules repeat patterns instead of abstracting.
+3. Change the narrowest layer: `.inc` controller/view → helper class → entity/map → `schema.tpl` → regenerated files.
+4. Syntax-check changed files in the container, then run the narrowest test scope.
+5. Before claiming done, paste the command and its output. "Should work" is not evidence.
 
-`GalleryPersistent` tracks which members were modified; `GalleryEntity`
-(`modules/core/classes/GalleryEntity.class`) is the store-ready base with `id`,
-`creationTimestamp`/`modificationTimestamp`, `serialNumber` (optimistic-concurrency check),
-`isLinkable`/`linkId`, `entityType` and `onLoadHandlers`. Each class declares its persisted
-members as `@g2 <member>` XML in its PHPDoc; the compiled member info lives in the generated
-`modules/<module>/classes/Entities.inc` (built from the `@g2` markup by
-`lib/tools/bin/generate-entities.php`) — never hand-edit it. At runtime,
-`GalleryCoreApi::describeEntity()` reads the serialized member info stored in per-plugin rows of
-the `Schema` table, populated by `GalleryStorage::configureStore()` during install/upgrade.
+## Repository map
+- `main.php` is the front controller; `bootstrap.inc` creates the Gallery instance and loads `config.php`; `init.inc` initializes the framework. `index.php`/`embed.php` are entry variants.
+- `modules/` plugins with `modules/core` as framework; `themes/` Smarty themes (`theme.inc`, `templates/`, `theme.css`); `lib/` shared libraries and tools.
+- `install/`, `upgrade/` browser flows; `images/`, `locale/` assets; `docker/` nginx + PHP config; setup in `DEVELOPMENT.md`.
 
-Typical hierarchy (under `modules/core/classes/` unless noted):
-
-- `GalleryChildEntity` adds `parentId`; base for entities attached to tree nodes
-  (`GalleryDerivative`, `modules/comment/classes/GalleryComment.class`, …).
-- `GalleryFileSystemEntity` adds `pathComponent` (the item's on-disk name).
-- `GalleryItem` is the album tree: `title`, `summary`, `description`, `keywords`, `ownerId`,
-  `originationTimestamp`, `viewedSinceTimestamp`, `canContainChildren`, `renderer`.
-  - `GalleryAlbumItem` adds `theme`, `orderBy`, `orderDirection`.
-  - `GalleryDataItem` adds `mimeType`/`size`; subclasses `GalleryPhotoItem` (`width`/`height`),
-    `GalleryMovieItem`, `GalleryAnimationItem`, `GalleryUnknownItem`.
-  - `GalleryDynamicAlbum` behaves like an album but is never stored; extra properties must be
-    declared explicitly (PHP 8 rejects undeclared dynamic properties).
-- Standalone entities: `GalleryUser` (`userName`, `hashedPassword`, `email`, `language`,
-  `locked`), `GalleryGroup`, and `GalleryDerivative` → `GalleryDerivativeImage`
-  (`derivativeSourceId`, `derivativeOperations` such as `scale|640`, `derivativeType` —
-  `DERIVATIVE_TYPE_IMAGE_THUMBNAIL`/`_RESIZE`/`_PREFERRED` from
-  `GalleryConstants.class` — and `isBroken`).
-
-Modules add entity classes extending one of the above (e.g.
-`modules/thumbnail/classes/ThumbnailImage.class`) and register them with
-`GalleryCoreApi::registerFactoryImplementation('GalleryEntity', …)` plus
-`getModuleEntityTypes()`. Create with `newFactoryInstance('GalleryEntity', $type)` followed by
-`$entity->create()` (see `modules/comment/AddComment.inc`); load via
-`GalleryCoreApi::loadEntitiesById()`, delete via `deleteEntityById()`. `save()`/`delete()` raise
-`GalleryEntity::save`/`GalleryEntity::delete` events for `GalleryEventListener` registrations.
-Wrap tree- or permission-affecting changes in read/write locks
-(`acquireReadLock()`/`acquireWriteLock()`/`releaseLocks()`).
-
-### Maps
-
-Maps are declared in `modules/<module>/classes/Maps.xml` and compiled to
-`modules/<module>/classes/Maps.inc` by `lib/tools/bin/generate-maps.php`; generate, don't
-hand-edit. Notable core maps (`modules/core/classes/Maps.xml`):
-
-- `GalleryAccessMap` — permission bitmasks per accessListId × userOrGroupId
-- `GalleryAccessSubscriberMap` — item → access-list-id cache for fast permission checks
-- `GalleryPermissionSetMap` — registered permission names per module
-- `GalleryItemAttributesMap` — `orderWeight`, `parentSequence`, `viewCount` per item
-- `GalleryUserGroupMap`, `GalleryPluginMap`, `GalleryPluginParameterMap`, `GalleryFactoryMap`,
-  the `GalleryToolkit*` maps (operations, mime bindings, item properties), plus session, cache
-  and maintenance tables.
-
-Manipulate maps with `GalleryCoreApi::getMapEntry()`, `addMapEntry()`, `updateMapEntry()`,
-`removeMapEntry()`.
-
-### Permissions
-
-Modules register item permissions on first install via
-`GalleryCoreApi::registerPermission()` in `module.inc`'s `upgrade()`
-(`modules/comment/module.inc` shows the pattern); composites use
-`GALLERY_PERMISSION_COMPOSITE` and bundle child permissions. Each item's access-list id is
-cached in `GalleryAccessSubscriberMap`; memberships join through `GalleryUserGroupMap` with
-well-known groups `GROUP_ALL_USERS`, `GROUP_SITE_ADMINS`, `GROUP_EVERYBODY`
-(`GalleryConstants.class`). Check with `GalleryCoreApi::hasItemPermission()`,
-`assertHasItemPermission()` or `fetchPermissionsForItems()`.
-
-### Queries and schema changes
-
-Storage access goes through `GalleryStorage` (`modules/core/classes/GalleryStorage.class`,
-ADOdb based) with per-platform subclasses under `modules/core/classes/GalleryStorage/`. Queries
-use the `[Class::member]`/`[Class]` notation, translated to `table.column` with the configured
-`DB_TABLE_PREFIX`/`DB_COLUMN_PREFIX` — never hard-code prefixes.
-
-Schema changes follow the module pattern:
-
-1. Declare new/changed members in the entity's `@g2` markup (or `Maps.xml`) and bump its
-   `@g2 <schema-minor>`.
-2. Update the end-state `CREATE TABLE` block and add a `# A_<Class>_<major>.<minor>` ALTER
-   block in `modules/<module>/classes/GalleryStorage/schema.tpl` under each platform section
-   (`## mysql`, `## postgres`, `## oracle`, `## db2`, `## mssql`, `## sqlite`); each block keeps
-   the matching `Schema` row in step. Block kinds: `# <Name>` create, `A_` alter, `R_` remove,
-   `T_` test fixtures.
-3. Call `$storage->configureStore($this->getId(), array('<Class>:<maj.min>'))` from the matching
-   case of the `upgrade()` switch in `module.inc` and bump `setVersion()` there too.
-4. Regenerate `Entities.inc`/`Maps.inc` with the `lib/tools/bin/` generators and add matching
-   per-version records under `modules/<module>/classes/GalleryStorage/xml-src/`.
-
-## Implementation conventions
-
-Use the existing Gallery patterns in the surrounding module; avoid broad style or API modernization. `modules/comment/module.inc` shows module metadata and callback registration. Request handling and view preparation live in `.inc` files such as `modules/comment/AddComment.inc` (controller and view) and `modules/comment/ShowComments.inc`; reusable comment entities and helpers are in `modules/comment/classes/`.
-
-Views select Smarty templates from `modules/<module>/templates/` (for example, `modules/comment/templates/AddComment.tpl`). Translation sources are in `modules/<module>/po/`, including `messages.po`, with compiled catalogs alongside them. The Comment module is a useful starting example, not a requirement that every module have identical structure.
-
-For framework contracts, inspect the related classes under `modules/core/classes/`, including `GalleryModule.class`, `GalleryController.class`, and `GalleryView.class`. Themes are implemented separately under `themes/<theme>/` with a `theme.inc`, templates, styles, and often their own translations; check a nearby theme when changing theme-facing behavior.
-
-### Gallery forms
-
-In templates, use `{g->hiddenFormVars}` for the return/form URLs and session auth token, and `{g->formVar var="form[field]"}` to name form inputs. Gallery prefixes request variables with `GALLERY_FORM_VARIABLE_PREFIX` (default `g2_`); avoid hard-coding the prefix.
-
-`main.php` selects a controller from the request, collects its `$form` with `GalleryUtilities::getFormVariables('form')`, and passes it to `handleRequest()`. The collector merges matching arrays from `$_POST`, `$_FILES`, and `$_GET`; form inputs conventionally use names such as `form[field]` and `form[action][submit]`. Before handling the request, `main.php` checks its session auth token unless the controller opts out; the check accepts non-persistent guest sessions and is bypassed in maintenance mode.
-
-Controllers branch on `$form['action']` keys and validate field values, then return a redirect, a same-request delegation, or a return result. A delegation preserves request values and can pass error flags such as `form[error][field][missing]` back to the view; `main.php` adds those flags to the request. Redirect after a data change to avoid reposts, but do not put passwords, tokens, or other sensitive values in a redirect URL. `modules/core/UserLogin.inc` shows the pattern: failed login validation delegates to the admin/login view with error flags, while success or cancel returns to the saved destination.
-
-`GalleryView::doLoadTemplate()` reloads the form array and exposes it to Smarty. Views use `formName` to distinguish a new form from a delegated redisplay: initialize defaults for a new form, preserve values intended for redisplay, and render `$form.error` flags next to relevant fields. `UserLoginView` retains the username but does not refill the password; `GalleryCommentHelper::getAddComment()` initializes or normalizes AddComment fields.
-
-For shared forms, `UserAdminView` passes the same form array to its selected subview, while `modules/core/templates/UserAdmin.tpl` owns the form wrapper and common hidden fields and includes the subview body. Keep subview templates such as `modules/core/templates/UserLogin.tpl` to their fields and actions rather than nesting another form. By contrast, `modules/comment/templates/AddComment.tpl` is a standalone-form example: it provides its own wrapper, hidden fields, inputs, errors, and actions.
-
-## Integration examples
-
-### ImageMagick
-
-Use `modules/imagemagick/module.inc` to trace registration: it exposes `imagemagick.AdminImageMagick` in site administration, registers `ImageMagickToolkit` as a `GalleryToolkit`, and advertises supported operations/properties during activation. `modules/imagemagick/AdminImageMagick.inc` handles administrator authorization, path validation, and saving module parameters; `modules/imagemagick/templates/AdminImageMagick.tpl` renders the path, settings, test results, and warnings (including when PHP disables `exec()`).
-
-For binary behavior, start in `modules/imagemagick/classes/ImageMagickToolkitHelper.class`: `testBinaries()` checks the required executables against sample data, while version and binary discovery support configuration and compatibility checks. The module also attempts automatic configuration using `PATH` and common platform directories. `modules/imagemagick/classes/ImageMagickToolkit.class` uses the stored binary path when performing toolkit operations, so changes to configuration or command execution may cross all of these files.
-
-### SquareThumb and ItemAdd
-
-#### SquareThumb
-
-`modules/squarethumb/module.inc` registers the `SquareThumbSiteAdmin` view, a deactivation event listener, and `SquareThumbToolkit`. Activation checks for an underlying toolkit operation that can convert PPM to JPEG, then registers SquareThumb’s high-priority thumbnail operation for supported MIME types. `modules/squarethumb/SquareThumbSiteAdmin.inc` and `modules/squarethumb/templates/SquareThumbSiteAdmin.tpl` manage crop/fit mode and background color; fit mode depends on the PPM conversion capability. `modules/squarethumb/classes/SquareThumbToolkit.class` obtains dimensions and delegates crop, composite, and thumbnail work to other toolkits, so trace both wrapper and underlying toolkit behavior when changing image processing.
-
-#### ItemAdd
-
-`modules/itemadd/module.inc` registers `ItemAddFromWeb` and `ItemAddFromServer` as `ItemAddPlugin` implementations and exposes `ItemAddSiteAdmin` in site administration. `modules/itemadd/ItemAddSiteAdmin.inc` and `modules/itemadd/templates/ItemAddSiteAdmin.tpl` control whether each source is available to all item-add users, site admins only, or disabled, and manage the allowed local-server directories. The server and web plugin behavior is in `modules/itemadd/ItemAddFromServer.inc` and `modules/itemadd/ItemAddFromWeb.inc`, with corresponding templates under `modules/itemadd/templates/`.
-
-When changing these paths, preserve the access checks and directory validation: the server plugin restricts browsing to configured paths, and the admin UI warns that those paths are available to users with item-add permission. The web-import UI also warns that Gallery fetches can be abused to target other websites, so access should be limited to trusted users.
-
-## Development setup
-
-Read `DEVELOPMENT.md` for prerequisites and detailed steps. `docker-compose.yaml` defines Nginx, PHP-FPM, and MariaDB; `docker/PHP.Dockerfile` uses PHP 8.1-FPM, and the optional `PHP_TARGET=debug` target enables Xdebug. The documented `docker compose up -d` command requires Docker Compose; the Gallery installation and writable `/gallery2-data` storage must be completed before using the app or browser tests. Do not copy database or admin credentials into this guide.
-
-Check setup instructions against the current files: `DEVELOPMENT.md` points to `/install.php`, but the repository has `install/index.php`, `main.php` redirects to `install/`, and `docker/nginx.conf` contains no rewrite for `/install.php`. Treat that URL as unverified until the setup documentation or running environment is checked.
+## Core Rules
+- Two data shapes: **entities** (`@g2` PHPDoc → generated `Entities.inc`) and **maps** (`Maps.xml` → generated `Maps.inc`); never hand-edit generated files. Storage goes through `GalleryStorage`; queries use `[Class::member]`, never hard-coded prefixes.
+- Match the file you edit (tabs, same-line braces, `array()`), keep PHP 8.1 compatibility, and declare properties explicitly — PHP 8 rejects undeclared dynamic properties.
+- User-visible text: `$gallery->i18n()` in PHP, `{g->text}` in templates; update `modules/<module>/po/messages.po`. Forms: use `{g->hiddenFormVars}` and `{g->formVar}` instead of hand-written `g2_` names.
+- Permissions: register during module upgrade; check server-side with `GalleryCoreApi::hasItemPermission()`, `assertHasItemPermission()` or `fetchPermissionsForItems()`.
+- Schema changes: `@g2`/`Maps.xml` → `schema.tpl` → `configureStore()` → regenerate; full recipe in `modules/AGENTS.md`.
 
 ## Tests
+- Web-driven runner, not a PHPUnit CLI: tests live in `modules/<module>/test/phpunit/`, helpers in `lib/tools/phpunit/`; `auto-test.sh` needs `USERNAME`/`PASSWORD` and takes a regex scope (`:1by1` stops at the first failure).
+- Locale files for es/ca/de/fr/pt_BR are prerequisites for some core tests: `lib/tools/phpunit/create-locale.sh`, see `DEVELOPMENT.md`.
+- Development installations only: tests write data and the runner commits its transaction. Keep `tmp-cookies.txt` and generated `*.html` reports out of commits.
 
-Tests live in each module’s `test/phpunit/` directory and use Gallery’s custom test cases: for example, `modules/comment/test/phpunit/AddCommentControllerTest.class` extends `GalleryControllerTestCase`, toolkit tests such as `modules/imagemagick/test/phpunit/ImageMagickToolkitTest.class` and `modules/squarethumb/test/phpunit/SquareThumbToolkitTest.class` use `GalleryTestCase`, and `modules/itemadd/test/phpunit/ItemAddFromWebTest.class` extends `ItemAddPluginTestCase`. Test setup typically creates fixtures and marks data or plugin parameters for cleanup; follow the affected module’s examples and test helpers under `lib/tools/phpunit/`.
+## Boundaries
 
-This is a web-driven runner, not a standalone PHPUnit CLI invocation. Follow `DEVELOPMENT.md` for test prerequisites, including locale setup, then use the browser at `/lib/tools/phpunit/index.php` or the helper syntax `auto-test.sh <SERVER_URL> <SCOPE>`. The scope may select a module, class, or test method; the documented syntax also supports exclusions, test-number ranges, and `:1by1`. The helper requires `USERNAME` and `PASSWORD` in its environment; `DEVELOPMENT.md` says the password is used for both the Gallery admin login and the support-area `setup.password`. Never put actual credentials in this guide or commit them.
+### Always Do
+- Read the target module's code and tests before changing behavior; keep changes module-local.
+- Add a test alongside new behavior; verify with the narrowest command and show the output.
+- Use Conventional Commits: `type(scope): subject`, e.g. `fix(comment): keep author on preview`.
+- **Changelog:** there is no CHANGELOG file; each PR records user-visible changes in its commit subject/body (types `feat:`, `fix:`, `docs:`, `chore:`), and release history is the git log.
 
-## Operational cautions
+### Ask First
+- Schema changes that affect existing installs (`schema.tpl`, upgrade path, `Schema` rows).
+- Module dependencies, module registration changes, or regenerating shared `.inc` files.
+- Repo-wide modernization, Docker/PHP bumps, or deleting/renaming public classes, permissions or config keys.
 
-Run the web test suite only against a development Gallery installation: tests create application data, and the runner commits its transaction. Do not expose `lib/tools/phpunit/index.php` to untrusted users; it is intended for an authenticated site administrator and also requires the support-area password.
+### Never Do
+- Commit `config.php`, credentials, `tmp-cookies.txt`, generated test HTML or `gallery2-data`.
+- Hand-edit generated `Entities.inc`/`Maps.inc`.
+- Bypass permission or form auth-token checks, or put passwords/tokens in redirect URLs or logs.
+- Mix broad style rewrites into functional changes.
 
-`auto-test.sh` clears and writes `tmp-cookies.txt` next to the script and writes a scope-named HTML response in the current directory. The web runner also stores timestamped HTML reports in the configured Gallery data directory under `test/`; treat the cookie jar as an authenticated session artifact and keep generated files out of commits.
+## Codebase State
+- PHP 8.1 compatibility port; 2.3.2-era code (PHP 4 idioms, `var` declarations, `array()`) remains by design; Docker plus the web test runner are the only feedback loop. Composer trees under `lib/adodb` are vendored third-party code, not the project build.
+- `DEVELOPMENT.md` drifts from the tree: it documents `/install.php` (actual: `install/index.php`; `main.php` redirects to `install/`) and `lib/tools/release` (absent). Trust the files.
+
+## Related Skills
+`php-modernization`, `testing-strategy`, `persistence-patterns`, `architecture-migration`, `security-architecture` — load when the task matches. They explain general practice; this file wins on repo specifics.
+
+## Scoped AGENTS.md (MUST read when working in these directories)
+- `./modules/AGENTS.md` — plugin anatomy, golden samples, entity/map hierarchy, terminology, permissions, schema recipe, form/view patterns.
+
+## When instructions conflict
+The closest `AGENTS.md` wins. Explicit user instructions override both.
