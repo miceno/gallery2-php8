@@ -15,10 +15,11 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 | Rebuild PHP | `PHP_TARGET=debug docker compose build php` | ~2min |
 | Syntax check | `docker compose exec php php -l modules/core/UserLogin.inc` | ~1s |
 | Open installer | `docker compose exec php chmod a+w /gallery2-data` | ~1s |
-| Run module tests | `bash auto-test.sh http://host.docker.internal:10000/ comment` | minutes |
-| Run one test | `bash auto-test.sh http://host.docker.internal:10000/ AddCommentControllerTest.testAddComment` | ~10s |
+| Run module tests | `/opt/homebrew/bin/bash auto-test.sh http://host.docker.internal:10000/ comment` | minutes |
+| Run one test | `/opt/homebrew/bin/bash auto-test.sh http://host.docker.internal:10000/ AddCommentControllerTest.testAddComment` | ~10s |
 | Regenerate entities | `docker compose exec -w /app/modules/comment/classes php php ../../../lib/tools/bin/generate-entities.php` | ~2s |
 
+- Shell: macOS ships Bash 3.2 at `/bin/bash`; Homebrew Bash 5.3.20 is at `/opt/homebrew/bin/bash`. Use the Homebrew path for scripts that need Bash 4+ (for example the agent-rules `validate-structure.sh`) and for the test commands above.
 - Install at `http://host.docker.internal:10000/install/`; `PHP_TARGET=debug` adds Xdebug (`base`/unset does not), and switching requires rebuilding and restarting `php`.
 - PHP exists only in the `php` container. Test runner UI: `http://host.docker.internal:10000/lib/tools/phpunit/index.php` — type a filter and press Enter (no submit button).
 
@@ -28,6 +29,7 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 3. Change the narrowest layer: `.inc` controller/view → helper class → entity/map → `schema.tpl` → regenerated files.
 4. Syntax-check changed files in the container, then run the narrowest test scope.
 5. Before claiming done, paste the command and its output. "Should work" is not evidence.
+6. If research reveals a reusable structure, contract, or rule that is not already documented, update the closest `AGENTS.md` in the same change.
 
 ## Repository map
 - `main.php` is the front controller; `bootstrap.inc` creates the Gallery instance and loads `config.php`; `init.inc` initializes the framework. `index.php`/`embed.php` are entry variants.
@@ -74,6 +76,7 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 
 ## Scoped AGENTS.md (MUST read when working in these directories)
 - `./modules/AGENTS.md` — plugin anatomy, golden samples, entity/map hierarchy, terminology, permissions, schema recipe, form/view patterns.
+- `./modules/search/AGENTS.md` — search contract, aggregate vs paged flows, provider registration, permission filtering, search tests.
 
 ## When instructions conflict
 The closest `AGENTS.md` wins. Explicit user instructions override both.

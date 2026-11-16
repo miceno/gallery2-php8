@@ -31,6 +31,13 @@ Create: register with `GalleryCoreApi::registerFactoryImplementation('GalleryEnt
 ### Maps
 Core maps in `modules/core/classes/Maps.xml`: `GalleryAccessMap` (bitmask per accessListId × userOrGroupId), `GalleryAccessSubscriberMap` (item → access-list cache), `GalleryPermissionSetMap`, `GalleryItemAttributesMap` (`orderWeight`, `parentSequence`, `viewCount`), `GalleryUserGroupMap`, `GalleryPluginMap`, `GalleryPluginParameterMap`, `GalleryFactoryMap`, the `GalleryToolkit*` maps, plus session/cache/maintenance tables.
 
+### Search integration
+- The search contract is `GallerySearchInterface_1_0` (`modules/search/classes/GallerySearchInterface_1_0.class`): implement `getSearchModuleInfo()` and `search()`, then register with `GalleryCoreApi::registerFactoryImplementation('GallerySearchInterface_1_0', …)` in `performFactoryRegistrations()`. `SearchScan`/`SearchShowAll` discover implementations via `getAllFactoryImplementationIds()`.
+- Existing implementations to copy: `GalleryCoreSearch` (`modules/core/classes/GalleryCoreSearch.class`), `GalleryCommentSearch` (`modules/comment/classes/GalleryCommentSearch.class`), `MultiLangSearch`, `CustomFieldSearch`, `mapv3Search`. Core search queries `[GalleryItem]` joined to `[GalleryAccessSubscriberMap]` and filters by `core.view` access-list ids.
+- Event-driven indexing: register a `GalleryEventListener` for `GalleryEntity::save`/`GalleryEntity::delete` (hints array) and guard with `GalleryUtilities::isA($entity, 'GalleryItem')`; see `NotificationItemStateChangeHandler` and `GalleryCommentHelper`.
+- Filter remote results server-side with `GalleryCoreApi::fetchPermissionsForItems()` (or `hasItemPermission()`); hidden UI is not a control.
+- HTTP integrations follow `AkismetApi` (`modules/comment/classes/AkismetApi.class`): `GalleryCoreApi::requestWebPage()`/`postToWebPage()` plus `json_encode`/`json_decode`; tests mock the platform with `$platform->setReply('fsockopen', …)`.
+
 ### Permissions
 Register item permissions on first install with `GalleryCoreApi::registerPermission()` in `module.inc`'s `upgrade()` (pattern: `modules/comment/module.inc`); composites set `GALLERY_PERMISSION_COMPOSITE` and list child permission names. Check with `hasItemPermission()`, `assertHasItemPermission()` or `fetchPermissionsForItems()`. Well-known groups: `GROUP_ALL_USERS`, `GROUP_SITE_ADMINS`, `GROUP_EVERYBODY` (`GalleryConstants.class`).
 
