@@ -6,3 +6,5 @@ mysqldata
 modules/bulkexcelupload
 themes/bootstrap_matrix
 modules/mapv3/images/routes
+.idea/
+.junie/
