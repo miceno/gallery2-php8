@@ -8,3 +8,8 @@ themes/bootstrap_matrix
 modules/mapv3/images/routes
 .idea/
 .junie/
+
+# planning-with-files scratch
+.planning/
+# superpowers workspaces
+.superpowers/
