@@ -9,6 +9,102 @@ This repository is a Gallery 2.3.2-based fork with PHP 8 compatibility changes. 
 - `images/` and `locale/` hold assets and localization data; `install/` and `upgrade/` contain installation and upgrade flows.
 - `README.md` describes the fork; `DEVELOPMENT.md` documents the development environment.
 
+## Data model
+
+Data lives in two shapes: **entities** (one row per object; PHP classes whose schema is declared
+in the class PHPDoc) and **maps** (row sets declared in `Maps.xml`). Most storage logic lives in
+helpers under `modules/core/classes/helpers/` (e.g. `GalleryItemHelper_advanced`,
+`GalleryPermissionHelper_simple`) fronted by thin `GalleryCoreApi` wrappers.
+
+### Entities
+
+`GalleryPersistent` tracks which members were modified; `GalleryEntity`
+(`modules/core/classes/GalleryEntity.class`) is the store-ready base with `id`,
+`creationTimestamp`/`modificationTimestamp`, `serialNumber` (optimistic-concurrency check),
+`isLinkable`/`linkId`, `entityType` and `onLoadHandlers`. Each class declares its persisted
+members as `@g2 <member>` XML in its PHPDoc; the compiled member info lives in the generated
+`modules/<module>/classes/Entities.inc` (built from the `@g2` markup by
+`lib/tools/bin/generate-entities.php`) — never hand-edit it. At runtime,
+`GalleryCoreApi::describeEntity()` reads the serialized member info stored in per-plugin rows of
+the `Schema` table, populated by `GalleryStorage::configureStore()` during install/upgrade.
+
+Typical hierarchy (under `modules/core/classes/` unless noted):
+
+- `GalleryChildEntity` adds `parentId`; base for entities attached to tree nodes
+  (`GalleryDerivative`, `modules/comment/classes/GalleryComment.class`, …).
+- `GalleryFileSystemEntity` adds `pathComponent` (the item's on-disk name).
+- `GalleryItem` is the album tree: `title`, `summary`, `description`, `keywords`, `ownerId`,
+  `originationTimestamp`, `viewedSinceTimestamp`, `canContainChildren`, `renderer`.
+  - `GalleryAlbumItem` adds `theme`, `orderBy`, `orderDirection`.
+  - `GalleryDataItem` adds `mimeType`/`size`; subclasses `GalleryPhotoItem` (`width`/`height`),
+    `GalleryMovieItem`, `GalleryAnimationItem`, `GalleryUnknownItem`.
+  - `GalleryDynamicAlbum` behaves like an album but is never stored; extra properties must be
+    declared explicitly (PHP 8 rejects undeclared dynamic properties).
+- Standalone entities: `GalleryUser` (`userName`, `hashedPassword`, `email`, `language`,
+  `locked`), `GalleryGroup`, and `GalleryDerivative` → `GalleryDerivativeImage`
+  (`derivativeSourceId`, `derivativeOperations` such as `scale|640`, `derivativeType` —
+  `DERIVATIVE_TYPE_IMAGE_THUMBNAIL`/`_RESIZE`/`_PREFERRED` from
+  `GalleryConstants.class` — and `isBroken`).
+
+Modules add entity classes extending one of the above (e.g.
+`modules/thumbnail/classes/ThumbnailImage.class`) and register them with
+`GalleryCoreApi::registerFactoryImplementation('GalleryEntity', …)` plus
+`getModuleEntityTypes()`. Create with `newFactoryInstance('GalleryEntity', $type)` followed by
+`$entity->create()` (see `modules/comment/AddComment.inc`); load via
+`GalleryCoreApi::loadEntitiesById()`, delete via `deleteEntityById()`. `save()`/`delete()` raise
+`GalleryEntity::save`/`GalleryEntity::delete` events for `GalleryEventListener` registrations.
+Wrap tree- or permission-affecting changes in read/write locks
+(`acquireReadLock()`/`acquireWriteLock()`/`releaseLocks()`).
+
+### Maps
+
+Maps are declared in `modules/<module>/classes/Maps.xml` and compiled to
+`modules/<module>/classes/Maps.inc` by `lib/tools/bin/generate-maps.php`; generate, don't
+hand-edit. Notable core maps (`modules/core/classes/Maps.xml`):
+
+- `GalleryAccessMap` — permission bitmasks per accessListId × userOrGroupId
+- `GalleryAccessSubscriberMap` — item → access-list-id cache for fast permission checks
+- `GalleryPermissionSetMap` — registered permission names per module
+- `GalleryItemAttributesMap` — `orderWeight`, `parentSequence`, `viewCount` per item
+- `GalleryUserGroupMap`, `GalleryPluginMap`, `GalleryPluginParameterMap`, `GalleryFactoryMap`,
+  the `GalleryToolkit*` maps (operations, mime bindings, item properties), plus session, cache
+  and maintenance tables.
+
+Manipulate maps with `GalleryCoreApi::getMapEntry()`, `addMapEntry()`, `updateMapEntry()`,
+`removeMapEntry()`.
+
+### Permissions
+
+Modules register item permissions on first install via
+`GalleryCoreApi::registerPermission()` in `module.inc`'s `upgrade()`
+(`modules/comment/module.inc` shows the pattern); composites use
+`GALLERY_PERMISSION_COMPOSITE` and bundle child permissions. Each item's access-list id is
+cached in `GalleryAccessSubscriberMap`; memberships join through `GalleryUserGroupMap` with
+well-known groups `GROUP_ALL_USERS`, `GROUP_SITE_ADMINS`, `GROUP_EVERYBODY`
+(`GalleryConstants.class`). Check with `GalleryCoreApi::hasItemPermission()`,
+`assertHasItemPermission()` or `fetchPermissionsForItems()`.
+
+### Queries and schema changes
+
+Storage access goes through `GalleryStorage` (`modules/core/classes/GalleryStorage.class`,
+ADOdb based) with per-platform subclasses under `modules/core/classes/GalleryStorage/`. Queries
+use the `[Class::member]`/`[Class]` notation, translated to `table.column` with the configured
+`DB_TABLE_PREFIX`/`DB_COLUMN_PREFIX` — never hard-code prefixes.
+
+Schema changes follow the module pattern:
+
+1. Declare new/changed members in the entity's `@g2` markup (or `Maps.xml`) and bump its
+   `@g2 <schema-minor>`.
+2. Update the end-state `CREATE TABLE` block and add a `# A_<Class>_<major>.<minor>` ALTER
+   block in `modules/<module>/classes/GalleryStorage/schema.tpl` under each platform section
+   (`## mysql`, `## postgres`, `## oracle`, `## db2`, `## mssql`, `## sqlite`); each block keeps
+   the matching `Schema` row in step. Block kinds: `# <Name>` create, `A_` alter, `R_` remove,
+   `T_` test fixtures.
+3. Call `$storage->configureStore($this->getId(), array('<Class>:<maj.min>'))` from the matching
+   case of the `upgrade()` switch in `module.inc` and bump `setVersion()` there too.
+4. Regenerate `Entities.inc`/`Maps.inc` with the `lib/tools/bin/` generators and add matching
+   per-version records under `modules/<module>/classes/GalleryStorage/xml-src/`.
+
 ## Implementation conventions
 
 Use the existing Gallery patterns in the surrounding module; avoid broad style or API modernization. `modules/comment/module.inc` shows module metadata and callback registration. Request handling and view preparation live in `.inc` files such as `modules/comment/AddComment.inc` (controller and view) and `modules/comment/ShowComments.inc`; reusable comment entities and helpers are in `modules/comment/classes/`.
