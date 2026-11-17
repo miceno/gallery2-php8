@@ -20,9 +20,9 @@ Add an optional **Elasticsearch** backend that indexes Gallery items (photos and
 
 ## 2. Constraints (must respect)
 
-- PHP 8.1 only, no Composer/autoload; module-local code; follow `modules/AGENTS.md`.
+- PHP 8.1 runtime (no Composer/autoload); module-local code; follow `modules/AGENTS.md`. New code uses modern PHP 8.1-compatible style + `declare(strict_types=1)` (visibility keywords, typed props/params/returns, `[]`, constructor promotion, `match`); **no namespaces** (framework loads module/controller/view/search classes by bare global name). Existing/legacy files keep legacy style. 8.2+ features (`readonly`, DNF types, standalone `null`/`false`/`true`) deferred until a runtime bump. Never mix styles within one file.
 - No external PHP Elasticsearch client library; HTTP via `GalleryCoreApi::requestWebPage()` / platform `fsockopen`, JSON via `json_encode`/`json_decode`.
-- Keep legacy style: tabs, same-line braces, `array()`, explicit properties, no `strict_types`.
+- Target Elasticsearch 8.x (endpoints and auth assume ES 8; `_doc`, `_update`, `multi_match`, highlighting).
 - Tests run through the web runner; HTTP must be mockable via the platform's `setReply('fsockopen', ...)`.
 - No schema/entity changes required (settings stored as plugin parameters).
 
