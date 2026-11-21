@@ -36,6 +36,15 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 - `modules/` plugins with `modules/core` as framework; `themes/` Smarty themes (`theme.inc`, `templates/`, `theme.css`); `lib/` shared libraries and tools.
 - `install/`, `upgrade/` browser flows; `images/`, `locale/` assets; `docker/` nginx + PHP config; setup in `DEVELOPMENT.md`.
 
+## Tech stack
+- **Language:** PHP 8.1 (port of Gallery 2.3.2; legacy PHP 4/5 idioms remain by design).
+- **Framework:** Gallery 2 (modular plugin system, `modules/core` as framework, Smarty templating in `themes/`).
+- **Database:** MySQL/MariaDB via `mysqli` + ADOdb (`lib/adodb`).
+- **Web server:** nginx + PHP-FPM (Docker).
+- **Frontend/libs:** Smarty, YUI, BBCode, ImageMagick, GD, phpass, JSON.
+- **Runtime/dev:** Docker Compose (nginx + php-fpm + mariadb); web-driven PHPUnit test runner.
+- **No project-level Composer manifest or autoloader**; third-party code is vendored under `lib/`.
+
 ## Core Rules
 - Two data shapes: **entities** (`@g2` PHPDoc → generated `Entities.inc`) and **maps** (`Maps.xml` → generated `Maps.inc`); never hand-edit generated files. Storage goes through `GalleryStorage`; queries use `[Class::member]`, never hard-coded prefixes.
 - Match the file you edit (tabs, same-line braces, `array()`), keep PHP 8.1 compatibility, and declare properties explicitly — PHP 8 rejects undeclared dynamic properties.
