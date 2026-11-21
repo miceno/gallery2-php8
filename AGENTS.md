@@ -1,17 +1,17 @@
 <!-- FOR AI AGENTS - Human readability is a side effect, not a goal -->
 <!-- Managed by agent: keep sections and order; edit content, not structure -->
-<!-- Last updated: 2026-11-16 | Last verified: 2026-11-16 -->
+<!-- Last updated: 2026-11-21 | Last verified: 2026-11-21 -->
 
 # AGENTS.md
 
-**Precedence:** the **closest `AGENTS.md`** to the files you're changing wins; explicit user instructions override both.
+**Precedence:** the **closest `AGENTS.md`** to the files you're changing wins; explicit user instructions override both. `CLAUDE.md` and `GEMINI.md` are symlinks to this file — edit only `AGENTS.md`.
 
 Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Composer manifest or autoloader, no CI, no static analysis, shared globals. Preserve the surrounding Gallery patterns; do not modernize broadly (no PSR-12 sweep, no `strict_types`, no framework swap).
 
 ## Commands
 | Task | Command | ~Time |
 |------|---------|-------|
-| Start stack | `docker compose up -d` | ~20s |
+| Start stack | `docker compose up -d` (`web`, `php`, `mysql`) | ~20s |
 | Rebuild PHP | `PHP_TARGET=debug docker compose build php` | ~2min |
 | Syntax check | `docker compose exec php php -l modules/core/UserLogin.inc` | ~1s |
 | Open installer | `docker compose exec php chmod a+w /gallery2-data` | ~1s |
@@ -19,9 +19,11 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 | Run one test | `/opt/homebrew/bin/bash auto-test.sh http://host.docker.internal:10000/ AddCommentControllerTest.testAddComment` | ~10s |
 | Regenerate entities | `docker compose exec -w /app/modules/comment/classes php php ../../../lib/tools/bin/generate-entities.php` | ~2s |
 
-- Shell: macOS ships Bash 3.2 at `/bin/bash`; Homebrew Bash 5.3.20 is at `/opt/homebrew/bin/bash`. Use the Homebrew path for scripts that need Bash 4+ (for example the agent-rules `validate-structure.sh`) and for the test commands above.
+- `auto-test.sh` takes the server URL as its **first argument**, reads `USERNAME`/`PASSWORD` from the environment, and treats the rest as a regex scope (append `:1by1` to stop at the first failure). It drives the web runner at `lib/tools/phpunit/index.php?filter=…`.
+- There is **no `phpunit` binary and no project `composer.json`** (only vendored `lib/adodb/vendor/`). The web UI at `http://host.docker.internal:10000/lib/tools/phpunit/index.php` is the only test loop: type a filter, press Enter (no submit button).
+- Shell: macOS ships Bash 3.2 at `/bin/bash`; Homebrew Bash 5.3.20 is at `/opt/homebrew/bin/bash`. Use the Homebrew path for scripts needing Bash 4+ (e.g. the agent-rules `validate-structure.sh`) and for the test commands above.
 - Install at `http://host.docker.internal:10000/install/`; `PHP_TARGET=debug` adds Xdebug (`base`/unset does not), and switching requires rebuilding and restarting `php`.
-- PHP exists only in the `php` container. Test runner UI: `http://host.docker.internal:10000/lib/tools/phpunit/index.php` — type a filter and press Enter (no submit button).
+- PHP exists only in the `php` container.
 
 ## Workflow
 1. Read the closest `AGENTS.md` and the target module's `module.inc` before editing.
@@ -32,9 +34,11 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 6. If research reveals a reusable structure, contract, or rule that is not already documented, update the closest `AGENTS.md` in the same change.
 
 ## Repository map
-- `main.php` is the front controller; `bootstrap.inc` creates the Gallery instance and loads `config.php`; `init.inc` initializes the framework. `index.php`/`embed.php` are entry variants.
+- `main.php` is the front controller; `bootstrap.inc` requires `Gallery.class` + `GalleryDataCache.class`, creates `$gallery = new Gallery(); $gallery->init();`, and `@include`s `config.php`. `index.php` redirects to `main.php`; `embed.php` requires `main.php` then loads `GalleryEmbed.class`.
+- `main.php` redirects to `install/` when `setup.password` is unset — a fresh checkout always lands on the installer. `config.php` is gitignored and does not exist until install writes it; `config.php.sample` is the template.
 - `modules/` plugins with `modules/core` as framework; `themes/` Smarty themes (`theme.inc`, `templates/`, `theme.css`); `lib/` shared libraries and tools.
 - `install/`, `upgrade/` browser flows; `images/`, `locale/` assets; `docker/` nginx + PHP config; setup in `DEVELOPMENT.md`.
+- Feature work is canonical under `docs/features/<feature>/{requirements.md,specs/,plans/}`; root files like `REQUIREMENTS-elasticsearch.md` are relative symlinks into it. `.planning/` and `.superpowers/` are gitignored.
 
 ## Tech stack
 - **Language:** PHP 8.1 (port of Gallery 2.3.2; legacy PHP 4/5 idioms remain by design).
@@ -42,11 +46,12 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 - **Database:** MySQL/MariaDB via `mysqli` + ADOdb (`lib/adodb`).
 - **Web server:** nginx + PHP-FPM (Docker).
 - **Frontend/libs:** Smarty, YUI, BBCode, ImageMagick, GD, phpass, JSON.
-- **Runtime/dev:** Docker Compose (nginx + php-fpm + mariadb); web-driven PHPUnit test runner.
+- **Runtime/dev:** Docker Compose (`web` + `php` + `mysql`); web-driven PHPUnit runner.
 - **No project-level Composer manifest or autoloader**; third-party code is vendored under `lib/`.
 
 ## Core Rules
 - Two data shapes: **entities** (`@g2` PHPDoc → generated `Entities.inc`) and **maps** (`Maps.xml` → generated `Maps.inc`); never hand-edit generated files. Storage goes through `GalleryStorage`; queries use `[Class::member]`, never hard-coded prefixes.
+- `schema.tpl` lives at `modules/<module>/classes/GalleryStorage/schema.tpl`; regenerate after any `@g2`/`Maps.xml` change.
 - Match the file you edit (tabs, same-line braces, `array()`), keep PHP 8.1 compatibility, and declare properties explicitly — PHP 8 rejects undeclared dynamic properties.
 - User-visible text: `$gallery->i18n()` in PHP, `{g->text}` in templates; update `modules/<module>/po/messages.po`. Forms: use `{g->hiddenFormVars}` and `{g->formVar}` instead of hand-written `g2_` names.
 - Permissions: register during module upgrade; check server-side with `GalleryCoreApi::hasItemPermission()`, `assertHasItemPermission()` or `fetchPermissionsForItems()`.
@@ -54,8 +59,8 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 
 ## Tests
 - Web-driven runner, not a PHPUnit CLI: tests live in `modules/<module>/test/phpunit/`, helpers in `lib/tools/phpunit/`; `auto-test.sh` needs `USERNAME`/`PASSWORD` and takes a regex scope (`:1by1` stops at the first failure).
-- Locale files for es/ca/de/fr/pt_BR are prerequisites for some core tests: `lib/tools/phpunit/create-locale.sh`, see `DEVELOPMENT.md`.
-- Development installations only: tests write data and the runner commits its transaction. Keep `tmp-cookies.txt` and generated `*.html` reports out of commits.
+- Locale files for `es`, `ca`, `de`, `fr` are prerequisites for some core tests: `lib/tools/phpunit/create-locale.sh`, see `DEVELOPMENT.md`. (`pt_BR` is referenced in old docs but has no `locale/` tree.)
+- Development installations only: tests write real data and the runner commits its transaction. Keep `tmp-cookies.txt` and generated `*.html` reports out of commits.
 
 ## Boundaries
 
@@ -79,6 +84,7 @@ Gallery 2.3.2 fork ported to PHP 8.1. Deliberately legacy: no project-level Comp
 ## Codebase State
 - PHP 8.1 compatibility port; 2.3.2-era code (PHP 4 idioms, `var` declarations, `array()`) remains by design; Docker plus the web test runner are the only feedback loop. Composer trees under `lib/adodb` are vendored third-party code, not the project build.
 - `DEVELOPMENT.md` drifts from the tree: it documents `/install.php` (actual: `install/index.php`; `main.php` redirects to `install/`) and `lib/tools/release` (absent). Trust the files.
+- No CI workflows and no pre-commit hooks: nothing enforces style or tests except what you run.
 
 ## Related Skills
 `php-modernization`, `testing-strategy`, `persistence-patterns`, `architecture-migration`, `security-architecture` — load when the task matches. They explain general practice; this file wins on repo specifics.
